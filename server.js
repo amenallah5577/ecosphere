@@ -17,7 +17,7 @@ async function searchWebForAgent(query) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            api_key: api_key: process.env.TAVILY_API_KEY,,
+            api_key: process.env.TAVILY_API_KEY,,
             query: query,
             search_depth: "advanced",
             include_answer: true,
