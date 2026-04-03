@@ -2,22 +2,34 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk');
+const mongoose = require('mongoose'); // New database tool
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 1. Corrected Groq initialization
+// Connect to MongoDB using the Render Environment Variable
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('✅ Connected to MongoDB!'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Define what a "History" entry looks like in the database
+const HistorySchema = new mongoose.Schema({
+    prompt: String,
+    title: String,
+    url: String,
+    date: { type: Date, default: Date.now }
+});
+const History = mongoose.model('History', HistorySchema);
+
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 async function searchWebForAgent(query) {
-    console.log(`Agent is searching the live web for: "${query}"...`);
     const response = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            // 2. Corrected Tavily initialization
             api_key: process.env.TAVILY_API_KEY,
             query: query,
             search_depth: "advanced",
@@ -32,7 +44,6 @@ async function searchWebForAgent(query) {
 app.post('/api/dispatch', async (req, res) => {
     try {
         const { task } = req.body;
-
         const searchResults = await searchWebForAgent(task);
         const liveContext = searchResults.results.map(r => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`).join('\n\n');
 
@@ -41,21 +52,10 @@ app.post('/api/dispatch', async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: `You are the EchoSphere Node Agent. You have just searched the live internet for the user's request.
-                    Here is the REAL data you found: 
-                    ${liveContext}
-                    
-                    Based ONLY on this real data, build your response. 
-                    Respond ONLY in valid JSON format with these keys:
-                    {
-                      "icon": "emoji",
-                      "title": "Short action title based on real data",
-                      "desc": "Explain what you found and summarize the best real option.",
-                      "metrics": ["Price/Salary/Detail", "Real Source Name"],
-                      "primaryAction": "Go to Real Link",
-                      "secondaryAction": "Dismiss",
-                      "realUrl": "The exact URL of the best result you found"
-                    }`
+                    content: `You are the EchoSphere Node Agent. You just searched the live internet.
+                    Real data: ${liveContext}
+                    Respond ONLY in valid JSON:
+                    {"icon": "emoji", "title": "Short title", "desc": "Summary", "metrics": ["Detail1", "Detail2"], "primaryAction": "Go to Link", "secondaryAction": "Dismiss", "realUrl": "Exact URL"}`
                 },
                 { role: "user", content: task }
             ],
@@ -64,13 +64,36 @@ app.post('/api/dispatch', async (req, res) => {
         });
 
         const agentResponse = JSON.parse(completion.choices[0].message.content);
+        
+        // SAVE TO DATABASE HERE!
+        try {
+            const newHistory = new History({
+                prompt: task,
+                title: agentResponse.title,
+                url: agentResponse.realUrl
+            });
+            await newHistory.save();
+        } catch (dbErr) {
+            console.error("Could not save history:", dbErr);
+        }
+
         res.json(agentResponse);
 
     } catch (error) {
         console.error("Agent Error:", error);
-        res.status(500).json({ error: "Agent node failed to process request." });
+        res.status(500).json({ error: "Agent node failed." });
+    }
+});
+
+// NEW ROUTE: Fetch the history for your Admin page
+app.get('/api/history', async (req, res) => {
+    try {
+        const history = await History.find().sort({ date: -1 }).limit(50); // Get last 50 searches
+        res.json(history);
+    } catch (err) {
+        res.status(500).json({ error: "Could not fetch history" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`EchoSphere Node running on port ${PORT} with Live Web Access`));
+app.listen(PORT, () => console.log(`🚀 EchoSphere running on port ${PORT}`));
