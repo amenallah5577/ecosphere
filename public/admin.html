@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EchoSphere | Admin History</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { background: #09090b; color: #fafafa; font-family: 'Inter', sans-serif; padding: 3rem; }
+        h1 { margin-bottom: 2rem; color: #00ff88; }
+        table { width: 100%; border-collapse: collapse; background: #18181b; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #27272a; }
+        th { background: #27272a; color: #a1a1aa; font-weight: 600; }
+        a { color: #3b82f6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Live Agent History</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>User Prompt</th>
+                <th>AI Response Title</th>
+                <th>Link Found</th>
+            </tr>
+        </thead>
+        <tbody id="historyTable">
+            <!-- Data will load here -->
+        </tbody>
+    </table>
+
+    <script>
+        async function loadHistory() {
+            const res = await fetch('/api/history');
+            const data = await res.json();
+            const tbody = document.getElementById('historyTable');
+            
+            data.forEach(entry => {
+                const row = document.createElement('tr');
+                const date = new Date(entry.date).toLocaleString();
+                row.innerHTML = `
+                    <td style="color: #a1a1aa; font-size: 0.9rem;">${date}</td>
+                    <td style="font-weight: 600;">"${entry.prompt}"</td>
+                    <td>${entry.title}</td>
+                    <td><a href="${entry.url}" target="_blank">View Link</a></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        loadHistory();
+    </script>
+</body>
+</html>
