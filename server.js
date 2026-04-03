@@ -1,12 +1,27 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const basicAuth = require('express-basic-auth');
 const Groq = require('groq-sdk');
 const mongoose = require('mongoose');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const adminAuth = basicAuth({
+    users: {
+        [process.env.ADMIN_USERNAME || 'admin']: process.env.ADMIN_PASSWORD || 'supersecret'
+    },
+    challenge: true,
+    realm: 'EchoSphere Admin Area'
+});
+
+// Protect /admin.html before express.static can serve it
+app.get('/admin.html', adminAuth, (req, res) => {
+    res.sendFile(__dirname + '/public/admin.html');
+});
+
 app.use(express.static('public'));
 
 // Connect to MongoDB
@@ -85,7 +100,7 @@ app.post('/api/dispatch', async (req, res) => {
     }
 });
 
-app.get('/api/history', async (req, res) => {
+app.get('/api/history', adminAuth, async (req, res) => {
     try {
         const history = await History.find().sort({ date: -1 }).limit(50);
         res.json(history);
