@@ -8,16 +8,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-const groq = new Groq({ apiKey: "const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });" });
+// 1. Corrected Groq initialization
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Helper function to search the real web using Tavily
 async function searchWebForAgent(query) {
     console.log(`Agent is searching the live web for: "${query}"...`);
     const response = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            api_key: process.env.TAVILY_API_KEY,,
+            // 2. Corrected Tavily initialization
+            api_key: process.env.TAVILY_API_KEY,
             query: query,
             search_depth: "advanced",
             include_answer: true,
@@ -27,15 +28,14 @@ async function searchWebForAgent(query) {
     const data = await response.json();
     return data;
 }
+
 app.post('/api/dispatch', async (req, res) => {
     try {
         const { task } = req.body;
 
-        // 1. The Agent searches the LIVE INTERNET first
         const searchResults = await searchWebForAgent(task);
         const liveContext = searchResults.results.map(r => `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content}`).join('\n\n');
 
-        // 2. The Agent analyzes the real data and builds the response
         const completion = await groq.chat.completions.create({
             model: "llama-3.3-70b-versatile",
             messages: [
