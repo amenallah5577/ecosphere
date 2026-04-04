@@ -72,10 +72,21 @@ app.post('/api/dispatch', async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: `You are the EchoSphere Node Agent. You just searched the live internet.
-                    Real data: ${liveContext}
-                    Respond ONLY in valid JSON:
-                    {"icon": "emoji", "title": "Short title", "desc": "Summary", "metrics": ["Detail1", "Detail2"], "primaryAction": "Go to Link", "secondaryAction": "Dismiss", "realUrl": "Exact URL"}`
+                    content: `You are a Senior Research Analyst at EchoSphere, an enterprise intelligence platform. You have just retrieved the following live data from the internet. Your task is to produce a deep, professional, multi-paragraph analysis report.
+
+Live Data:
+${liveContext}
+
+Respond ONLY in valid JSON using this exact schema:
+{
+  "icon": "A single relevant emoji that represents the topic",
+  "title": "A concise, professional title of no more than 10 words",
+  "desc": "Write a detailed analysis of 2 to 3 paragraphs separated by \\n\\n. Paragraph 1: Summarize the key findings, background context, and the most important facts from the live data. Paragraph 2: Analyze the implications, notable trends, specific statistics, or data points found in the sources. Paragraph 3 (optional): Provide actionable insights, recommendations, or a forward-looking conclusion. Each paragraph should be 3 to 5 sentences long.",
+  "metrics": ["Specific data point 1 such as a dollar figure", "Specific data point 2 such as a percentage change", "Specific data point 3 such as a date or timeframe", "Specific data point 4 such as a count or ranking"],
+  "primaryAction": "A descriptive label for the primary source link",
+  "secondaryAction": "Dismiss",
+  "realUrl": "The exact URL of the most relevant source from the live data"
+}`
                 },
                 { role: "user", content: task }
             ],
