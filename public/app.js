@@ -13,6 +13,23 @@ function toggleLeftSidebar() {
     if (isOpen) fetchHistory();
 }
 
+// ---- Conversational Memory ----
+
+let currentSessionHistory = [];
+
+const MAX_HISTORY_PAIRS = 10; // keep last 10 user/assistant exchanges (20 messages)
+
+function updateSessionHistory(task, data) {
+    currentSessionHistory.push({ role: 'user', content: task });
+    // Store a compact summary to stay within token limits
+    const summary = (data.title || '') + (data.desc ? ': ' + data.desc.slice(0, 300) : '');
+    currentSessionHistory.push({ role: 'assistant', content: summary });
+    // Trim to the last MAX_HISTORY_PAIRS exchanges (2 messages per pair)
+    if (currentSessionHistory.length > MAX_HISTORY_PAIRS * 2) {
+        currentSessionHistory = currentSessionHistory.slice(-MAX_HISTORY_PAIRS * 2);
+    }
+}
+
 // ---- New Chat ----
 
 function startNewChat() {
@@ -22,6 +39,7 @@ function startNewChat() {
         if (child.id !== 'welcomeScreen') child.remove();
     });
     document.getElementById('welcomeScreen').classList.remove('display-none');
+    currentSessionHistory = [];
     toggleLeftSidebar();
 }
 
@@ -165,7 +183,8 @@ async function handleTask() {
         statusEl.classList.add('active');
         const phases = [
             'Querying external data sources…',
-            'Aggregating real-time results…',
+            'Deep-scraping top results…',
+            'Reasoning through the data…',
             'Formatting protocol response…'
         ];
         let phaseIndex = 0;
@@ -179,12 +198,16 @@ async function handleTask() {
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task })
+                body: JSON.stringify({ task, history: currentSessionHistory })
             });
             const data = await response.json();
             clearInterval(phaseInterval);
             statusEl.classList.remove('active');
             loadingCard.remove();
+            if (!data.error) {
+                // Update conversational memory
+                updateSessionHistory(task, data);
+            }
             renderCard(data);
         } catch (err) {
             clearInterval(phaseInterval);
@@ -199,10 +222,13 @@ async function handleTask() {
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task })
+                body: JSON.stringify({ task, history: currentSessionHistory })
             });
             const data = await response.json();
             loadingCard.remove();
+            if (!data.error) {
+                updateSessionHistory(task, data);
+            }
             renderCard(data);
         } catch (err) {
             console.error('Agent request failed:', err);
