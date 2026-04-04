@@ -138,7 +138,9 @@ app.post('/api/dispatch', async (req, res) => {
         }).join('\n\n');
 
         // Build the messages array: system prompt + conversation history + current task
-        const conversationHistory = Array.isArray(history) ? history : [];
+        // Cap to last 20 messages (10 pairs) on the server side to prevent token overflow
+        const MAX_HISTORY = 20;
+        const conversationHistory = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
 
         const messages = [
             {
