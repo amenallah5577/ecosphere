@@ -220,11 +220,12 @@ function renderCard(data) {
     card.className = 'card';
 
     const safeUrl = sanitizeUrl(data.realUrl);
+    const formattedDesc = escapeHtml(data.desc || '').replace(/\n/g, '<br>');
     card.innerHTML = `
         <div class="card-icon">${data.icon || '⚡'}</div>
         <div class="card-content">
             <h3>${escapeHtml(data.title || '')}</h3>
-            <p>${escapeHtml(data.desc || '')}</p>
+            <p>${formattedDesc}</p>
             <div class="metrics-row">${metricsHtml}</div>
             <div class="action-buttons">
                 <button class="btn js-primary-action">${escapeHtml(data.primaryAction || 'Open')}</button>
