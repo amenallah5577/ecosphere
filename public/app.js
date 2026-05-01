@@ -51,7 +51,9 @@ async function fetchHistory() {
     const list = document.getElementById('historyList');
     list.innerHTML = '<div class="history-empty">Loading…</div>';
     try {
-        const res = await fetch('/api/history');
+        const token = window.Clerk && window.Clerk.session ? await window.Clerk.session.getToken() : null;
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const res = await fetch('/api/history', { headers });
         if (!res.ok) throw new Error('Failed to fetch');
         allHistory = await res.json();
         renderHistory(allHistory);
@@ -208,6 +210,7 @@ async function handleTask() {
         }, 1500);
 
         try {
+            const token = window.Clerk && window.Clerk.session ? await window.Clerk.session.getToken() : null;
             const formData = new FormData();
             formData.append('task', task);
             formData.append('history', JSON.stringify(currentSessionHistory));
@@ -216,6 +219,7 @@ async function handleTask() {
             }
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: formData
             });
             const data = await response.json();
@@ -237,6 +241,7 @@ async function handleTask() {
     } else {
         // Fallback if status elements not present
         try {
+            const token = window.Clerk && window.Clerk.session ? await window.Clerk.session.getToken() : null;
             const formData = new FormData();
             formData.append('task', task);
             formData.append('history', JSON.stringify(currentSessionHistory));
@@ -245,6 +250,7 @@ async function handleTask() {
             }
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 body: formData
             });
             const data = await response.json();
@@ -323,9 +329,37 @@ function sanitizeUrl(url) {
     return '#';
 }
 
+// ---- Clerk Authentication ----
+
+async function initClerk() {
+    if (!window.Clerk) return;
+    await window.Clerk.load();
+
+    if (window.Clerk.user) {
+        // User is signed in — mount the UserButton profile widget
+        window.Clerk.mountUserButton(document.getElementById('user-button'));
+    } else {
+        // User is not signed in — hide the chat input and show a sign-in prompt
+        const inputArea = document.querySelector('.input-area');
+        if (inputArea) inputArea.style.display = 'none';
+
+        const welcome = document.getElementById('welcomeScreen');
+        if (welcome) {
+            welcome.innerHTML = `
+                <div class="welcome-icon">🔒</div>
+                <h2>Welcome to EchoSphere</h2>
+                <p>Please sign in to access your personal workspace and history.</p>
+                <button class="btn" style="margin-top:1rem" onclick="window.Clerk.redirectToSignIn()">Sign In</button>`;
+        }
+    }
+}
+
 // ---- Init ----
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Clerk authentication
+    initClerk();
+
     // Inject status bar into feed if not present
     const feed = document.getElementById('feed');
     if (feed && !document.getElementById('loadingStatus')) {
