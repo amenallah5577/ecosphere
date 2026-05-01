@@ -127,17 +127,30 @@ function autoResize(textarea) {
 
 // ---- PDF UI ----
 
+let attachedPdfFile = null;
+
 function togglePdfManager() {
     const manager = document.getElementById('inlinePdfManager');
     manager.classList.toggle('display-none');
 }
 
 function mockFileUpload() {
-    document.getElementById('uploadZone').classList.add('display-none');
-    document.getElementById('pdfAttached').classList.remove('display-none');
+    const pdfInput = document.getElementById('pdfInput');
+    pdfInput.value = '';
+    pdfInput.onchange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        attachedPdfFile = file;
+        const nameEl = document.querySelector('#pdfAttached .pdf-chip span');
+        if (nameEl) nameEl.textContent = file.name;
+        document.getElementById('uploadZone').classList.add('display-none');
+        document.getElementById('pdfAttached').classList.remove('display-none');
+    };
+    pdfInput.click();
 }
 
 function removeAttachedPdf() {
+    attachedPdfFile = null;
     document.getElementById('pdfAttached').classList.add('display-none');
     document.getElementById('inlinePdfViewer').classList.add('display-none');
     document.getElementById('uploadZone').classList.remove('display-none');
@@ -195,10 +208,15 @@ async function handleTask() {
         }, 1500);
 
         try {
+            const formData = new FormData();
+            formData.append('task', task);
+            formData.append('history', JSON.stringify(currentSessionHistory));
+            if (attachedPdfFile) {
+                formData.append('file', attachedPdfFile, attachedPdfFile.name);
+            }
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task, history: currentSessionHistory })
+                body: formData
             });
             const data = await response.json();
             clearInterval(phaseInterval);
@@ -219,10 +237,15 @@ async function handleTask() {
     } else {
         // Fallback if status elements not present
         try {
+            const formData = new FormData();
+            formData.append('task', task);
+            formData.append('history', JSON.stringify(currentSessionHistory));
+            if (attachedPdfFile) {
+                formData.append('file', attachedPdfFile, attachedPdfFile.name);
+            }
             const response = await fetch('/api/dispatch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task, history: currentSessionHistory })
+                body: formData
             });
             const data = await response.json();
             loadingCard.remove();
@@ -255,12 +278,23 @@ function renderCard(data) {
             <div class="metrics-row">${metricsHtml}</div>
             <div class="action-buttons">
                 <button class="btn js-primary-action">${escapeHtml(data.primaryAction || 'Open')}</button>
+                <button class="btn btn-outline js-download-action">Download Report</button>
                 <button class="btn btn-outline js-dismiss-action">${escapeHtml(data.secondaryAction || 'Dismiss')}</button>
             </div>
         </div>`;
 
     card.querySelector('.js-primary-action').addEventListener('click', () => {
         window.open(safeUrl, '_blank', 'noopener,noreferrer');
+    });
+    card.querySelector('.js-download-action').addEventListener('click', () => {
+        const reportText = (data.title || '') + '\n\n' + (data.desc || '');
+        const blob = new Blob([reportText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (data.title || 'report').replace(/[^a-z0-9_\-. ]/gi, '_') + '.txt';
+        a.click();
+        URL.revokeObjectURL(url);
     });
     card.querySelector('.js-dismiss-action').addEventListener('click', () => {
         card.remove();

@@ -4,10 +4,15 @@ const cors = require('cors');
 const Groq = require('groq-sdk');
 const mongoose = require('mongoose');
 const basicAuth = require('express-basic-auth');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Memory-only storage — no files are written to disk
+const upload = multer({ storage: multer.memoryStorage() });
 
 // --- SECURITY LOCK ---
 // This requires a password for /admin.html and /api/history
@@ -127,15 +132,32 @@ async function searchWebForAgent(query) {
     return data;
 }
 
-app.post('/api/dispatch', async (req, res) => {
+app.post('/api/dispatch', upload.single('file'), async (req, res) => {
     try {
-        const { task, history } = req.body;
+        const task = req.body.task;
+        // history may arrive as a JSON string (from FormData) or as an array (from JSON body)
+        let history = req.body.history;
+        if (typeof history === 'string') {
+            try { history = JSON.parse(history); } catch { history = []; }
+        }
+
         const searchResults = await searchWebForAgent(task);
-        const liveContext = searchResults.results.map(r => {
+        let liveContext = searchResults.results.map(r => {
             let entry = `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.content}`;
             if (r.deepContent) entry += `\nFull Page Text: ${r.deepContent}`;
             return entry;
         }).join('\n\n');
+
+        // If a PDF was uploaded, parse it and append the extracted text to the context
+        if (req.file && req.file.mimetype === 'application/pdf') {
+            try {
+                const pdfData = await pdfParse(req.file.buffer);
+                const pdfText = pdfData.text.slice(0, 5000);
+                liveContext += `\n\n--- Uploaded PDF: ${req.file.originalname} ---\n${pdfText}`;
+            } catch (pdfErr) {
+                console.error('PDF parse error:', pdfErr);
+            }
+        }
 
         // Build the messages array: system prompt + conversation history + current task
         // Cap to last 20 messages (10 pairs) on the server side to prevent token overflow
