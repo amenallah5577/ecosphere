@@ -287,12 +287,15 @@ function renderCard(data) {
         window.open(safeUrl, '_blank', 'noopener,noreferrer');
     });
     card.querySelector('.js-download-action').addEventListener('click', () => {
-        const reportText = (data.title || '') + '\n\n' + (data.desc || '');
+        const metricsText = Array.isArray(data.metrics) && data.metrics.length
+            ? '\n\nKey Metrics:\n' + data.metrics.map(m => '• ' + m).join('\n')
+            : '';
+        const reportText = (data.title || '') + '\n\n' + (data.desc || '') + metricsText;
         const blob = new Blob([reportText], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = (data.title || 'report').replace(/[^a-z0-9_\-. ]/gi, '_') + '.txt';
+        a.download = (data.title || 'report').replace(/[^a-z0-9_\-.]/gi, '_') + '.txt';
         a.click();
         URL.revokeObjectURL(url);
     });

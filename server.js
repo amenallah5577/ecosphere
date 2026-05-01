@@ -138,7 +138,10 @@ app.post('/api/dispatch', upload.single('file'), async (req, res) => {
         // history may arrive as a JSON string (from FormData) or as an array (from JSON body)
         let history = req.body.history;
         if (typeof history === 'string') {
-            try { history = JSON.parse(history); } catch { history = []; }
+            try { history = JSON.parse(history); } catch (parseErr) {
+                console.error('Failed to parse history JSON:', parseErr);
+                history = [];
+            }
         }
 
         const searchResults = await searchWebForAgent(task);
